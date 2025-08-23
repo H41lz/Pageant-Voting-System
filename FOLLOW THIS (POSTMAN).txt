@@ -1,0 +1,196 @@
+[X]Step 1: Create a New POSTMAN Collection
+Open POSTMAN and click "New" → "Collection"
+Name it: Pageant Voting System API
+Description: API endpoints for the pageant voting system
+
+
+
+[X]Step 2: Set Up Environment Variables
+Click "Environments" → "New"
+Environment Name: Pageant Voting System - Local
+Add these variables:
+Variable	Initial Value	Current Value
+base_url	http://localhost:8000/api	http://localhost:8000/api
+auth_token	(leave empty)	(will be filled after login)
+user_id	(leave empty)	(will be filled after login)
+Click "Save"
+
+
+
+Step 3: Set Up Collection Headers
+Go to your collection → "..." → "Edit"
+Go to "Headers" tab
+Add these default headers:
+Key	Value
+Content-Type	application/json
+Accept	application/json
+
+
+
+Step 4: Create Authentication Endpoints
+[X]4.1 User Registration
+Right-click collection → "Add Request"
+Name: Register User
+Method: POST
+URL: http://localhost:8000/register
+Body → raw → JSON:
+    {
+    "email": "test@example.com",
+    "password": "password123"
+    }
+
+[X]4.2 User Login
+Right-click collection → "Add Request"
+Name: Login User
+Method: POST
+URL: http://localhost:8000/login
+Body → raw → JSON:
+    {
+    "email": "test@example.com",
+    "password": "password123"
+    }
+Tests tab → Add this script:
+    if (pm.response.code === 200) {
+        const response = pm.response.json();
+        pm.environment.set("auth_token", response.access_token);
+        pm.environment.set("user_id", response.user.id);
+    }
+
+[=]4.3 User Logout
+Right-click collection → "Add Request"
+Name: Logout User
+Method: POST
+URL: http://localhost:8000/logout
+Headers → Add:
+    Authorization: Bearer {{auth_token}}
+
+
+
+Step 5: Create Public Endpoints
+[X]5.1 Get All Candidates (Public)
+Right-click collection → "Add Request"
+Name: Get All Candidates
+Method: GET
+URL: http://localhost:8000/candidates
+
+[X]5.2 Get Voting Results (Public)
+Right-click collection → "Add Request"
+Name: Get Voting Results
+Method: GET
+URL: http://localhost:8000/results
+
+
+
+Step 6: Create User Voting Endpoints
+[=]6.1 Cast a Vote
+Right-click collection → "Add Request"
+Name: Cast Vote
+Method: POST
+URL: http://localhost:8000/votes
+Headers → Add:
+Authorization: Bearer {{auth_token}}
+Body → raw → JSON:
+    {
+        "candidate_id": 1,
+        "type": "free"
+    }
+
+[=]6.2 Get Vote History
+Right-click collection → "Add Request"
+Name: Get Vote History
+Method: GET
+URL: http://localhost:8000/votes/history
+Headers → Add:
+Authorization: Bearer {{auth_token}}
+
+[=]6.3 Purchase Votes
+Right-click collection → "Add Request"
+Name: Purchase Votes
+Method: POST
+URL: http://localhost:8000/votes/purchase
+Headers → Add:
+Authorization: Bearer {{auth_token}}
+Body → raw → JSON:
+    {
+    "candidate_id": 1,
+    "quantity": 5
+    }
+
+
+Step 7: Create Admin Endpoints
+[=]7.1 Create Candidate (Admin Only)
+Right-click collection → "Add Request"
+Name: Create Candidate
+Method: POST
+URL: http://localhost:8000/candidates
+Headers → Add:
+Authorization: Bearer {{auth_token}}
+Body → raw → JSON:
+    {
+    "name": "New Candidate",
+    "description": "Beautiful and talented candidate",
+    "image_url": "https://example.com/image.jpg"
+    }
+
+[=]7.2 Update Candidate (Admin Only)
+Right-click collection → "Add Request"
+Name: Update Candidate
+Method: PUT
+URL: http://localhost:8000/candidates/1
+Headers → Add:
+Authorization: Bearer {{auth_token}}
+Body → raw → JSON:
+    {
+    "name": "Updated Candidate Name",
+    "description": "Updated description",
+    "image_url": "https://example.com/new-image.jpg"
+    }
+
+[=]7.3 Delete Candidate (Admin Only)
+Right-click collection → "Add Request"
+Name: Delete Candidate
+Method: DELETE
+URL: http://localhost:8000/candidates/1
+Headers → Add:
+Authorization: Bearer {{auth_token}}
+
+[=]7.4 Get Admin Votes View
+Right-click collection → "Add Request"
+Name: Get Admin Votes
+Method: GET
+URL: http://localhost:8000/admin/votes
+Headers → Add:
+Authorization: Bearer {{auth_token}}
+Query Params (optional):
+user_id: {{user_id}}
+type: free or paid
+
+
+
+Step 8: Test the API Flow
+Testing Sequence:
+Start your Laravel backend:
+Test in this order:
+Register User → Should return 201 with user data and token
+Login User → Should return 200 with token (check environment variables are set)
+Get All Candidates → Should return 200 with candidates array
+Cast Vote → Should return 200 with vote confirmation
+Get Vote History → Should return 200 with user's votes
+Get Voting Results → Should return 200 with results
+
+
+
+Step 9: Admin Testing (Optional)
+Note: To test admin endpoints, you need to manually set a user's role to 'admin' in the database:
+Open your database (phpMyAdmin if using XAMPP)
+Find the users table
+Update the role field for your test user to admin
+Then test admin endpoints:
+Create Candidate
+Update Candidate
+Delete Candidate
+Get Admin Votes
+Step 10: Save and Export
+Save your collection (Ctrl+S)
+Export collection → "..." → "Export" → "Collection v2.1"
+Save the JSON file for backup or sharing

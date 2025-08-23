@@ -1,0 +1,39 @@
+STEP 1:
+# Run this command in your Laravel project directory
+php artisan make:migration remove_name_from_users_table --table=users
+
+
+STEP 2:
+# ADD THIS IN THE PAGEANT-VOTING-SYSTEM > database > migrations > "find XXXX_XX_XX_remove_name_from_users_table.php
+<?php
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('name');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('name')->after('id');
+        });
+    }
+};
+
+
+STEP 3:
+# RUN the Migration
+php artisan migrate
