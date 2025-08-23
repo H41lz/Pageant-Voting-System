@@ -11,7 +11,7 @@ body {
   box-shadow: 0 4px 24px rgba(0,0,0,0.08);
   border-radius: 16px;
   padding: 2.5rem 2rem;
-  max-width: 350px;
+  max-width: 400px;
   margin: 0em auto;
   position: absolute;
   top: 50%;
@@ -43,6 +43,11 @@ body {
   outline: none;
 }
 
+.form-container input:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
 .form-container button {
   width: 100%;
   padding: 0.75rem 1rem;
@@ -56,8 +61,13 @@ body {
   transition: background 0.2s;
 }
 
-.form-container button:hover {
+.form-container button:hover:not(:disabled) {
   background: #2563eb;
+}
+
+.form-container button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
 }
 
 .form-container p {
@@ -70,6 +80,46 @@ body {
   color: #3b82f6;
   text-decoration: none;
   font-weight: 500;
+}
+
+/* Error Message */
+.error-message {
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Admin Info Section */
+.admin-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-info h4 {
+  margin: 0 0 0.5rem 0;
+  color: #0369a1;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.admin-info p {
+  margin: 0.25rem 0;
+  font-size: 0.8rem;
+  color: #0c4a6e;
+  line-height: 1.4;
 }
  
 footer {

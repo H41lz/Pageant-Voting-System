@@ -196,7 +196,7 @@ class ApiService {
             }
             
             const response = await fetch(`${API_BASE_URL}/candidates/${id}`, {
-                method: 'POST', // Using POST with _method for Laravel
+                method: 'PUT', // Using POST with _method for Laravel
                 headers,
                 body: candidateData instanceof FormData ? candidateData : JSON.stringify(candidateData)
             });

@@ -98,7 +98,6 @@ export default function Admin() {
       if (editForm.image) {
         formData.append('image', editForm.image);
       }
-      formData.append('_method', 'PUT'); // For Laravel to treat as PUT request
 
       await ApiService.updateCandidate(editingCandidate.id, formData);
       setSuccess('Candidate updated successfully!');
