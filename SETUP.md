@@ -23,6 +23,7 @@ Step 4: ***MUST DO***
 "Ctrl + Shift + ` "
 
 then do this commands:
+php artisan key:generate
 php artisan migrate
 php artisan db:seed
 php artisan storage:link
