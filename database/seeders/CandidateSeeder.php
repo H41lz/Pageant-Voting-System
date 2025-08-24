@@ -55,16 +55,30 @@ class CandidateSeeder extends Seeder
                 'description' => 'Social worker dedicated to helping vulnerable communities.',
                 'image' => null,
             ],
+            [
+                'name' => 'Mia Anderson',
+                'description' => 'Scientist working on innovative research projects.',
+                'image' => null,
+            ],
+            [
+                'name' => 'Charlotte Taylor',
+                'description' => 'Journalist committed to truth and transparency.',
+                'image' => null,
+            ],
+            [
+                'name' => 'Amelia Brown',
+                'description' => 'Chef promoting healthy eating and food sustainability.',
+                'image' => null,
+            ],
+            [
+                'name' => 'Harper Wilson',
+                'description' => 'Law student advocating for justice and equality.',
+                'image' => null,
+            ],
         ];
 
         foreach ($candidates as $candidate) {
-            Candidate::firstOrCreate(
-                ['name' => $candidate['name']],
-                [
-                    'description' => $candidate['description'],
-                    'image' => $candidate['image'],
-                ]
-            );
+            Candidate::create($candidate);
         }
     }
-}
+} 

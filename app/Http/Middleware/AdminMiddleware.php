@@ -13,6 +13,7 @@ class AdminMiddleware
         if (Auth::check() && Auth::user()->role === 'admin') {
             return $next($request);
         }
+
         return response()->json(['message' => 'Admins only'], 403);
     }
 }

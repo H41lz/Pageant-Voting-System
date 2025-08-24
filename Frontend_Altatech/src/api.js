@@ -5,6 +5,7 @@ class ApiService {
     static getAuthHeaders() {
         const token = localStorage.getItem('auth_token');
         return {
+            'Content-Type': 'application/json',
             'Accept': 'application/json',
             ...(token && { 'Authorization': `Bearer ${token}` })
         };
@@ -27,11 +28,6 @@ class ApiService {
             }
             
             const data = await response.json();
-            
-            if (data.token) {
-                localStorage.setItem('auth_token', data.token);
-                localStorage.setItem('currentUser', credentials.email);
-            }
             
             return data;
         } catch (error) {
@@ -83,6 +79,23 @@ class ApiService {
     }
 
     // Voting
+    static async canVote() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/votes/can-vote`, {
+                headers: this.getAuthHeaders()
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to check voting status');
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('API Can Vote Check Error:', error);
+            throw error;
+        }
+    }
+
     static async castVote(voteData) {
         try {
             const response = await fetch(`${API_BASE_URL}/votes`, {
@@ -92,7 +105,8 @@ class ApiService {
             });
             
             if (!response.ok) {
-                throw new Error('Vote failed');
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Vote failed');
             }
             
             return await response.json();
@@ -158,28 +172,51 @@ class ApiService {
         }
     }
 
-    // Admin functions - Updated for FormData support
-    static async createCandidate(candidateData) {
+    // Get vote counts for a specific candidate
+    static async getCandidateVotes(candidateId) {
         try {
-            const headers = this.getAuthHeaders();
-            
-            // If it's FormData (file upload), don't set Content-Type
-            if (!(candidateData instanceof FormData)) {
-                headers['Content-Type'] = 'application/json';
-            }
-            
-            const response = await fetch(`${API_BASE_URL}/candidates`, {
-                method: 'POST',
-                headers,
-                body: candidateData instanceof FormData ? candidateData : JSON.stringify(candidateData)
+            const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/votes`, {
+                headers: {
+                    'Accept': 'application/json'
+                }
             });
             
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to create candidate');
+                throw new Error('Failed to fetch candidate votes');
             }
             
             return await response.json();
+        } catch (error) {
+            console.error('API Candidate Votes Error:', error);
+            throw error;
+        }
+    }
+
+    // Admin functions
+    static async createCandidate(candidateData) {
+        try {
+            const headers = this.getAuthHeaders();
+            console.log('Creating candidate with headers:', headers);
+            console.log('Candidate data:', candidateData);
+            
+            const response = await fetch(`${API_BASE_URL}/candidates`, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(candidateData)
+            });
+            
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Response error:', errorText);
+                throw new Error(`Failed to create candidate: ${response.status} ${errorText}`);
+            }
+            
+            const result = await response.json();
+            console.log('Response result:', result);
+            return result;
         } catch (error) {
             console.error('API Create Candidate Error:', error);
             throw error;
@@ -189,24 +226,26 @@ class ApiService {
     static async updateCandidate(id, candidateData) {
         try {
             const headers = this.getAuthHeaders();
-            
-            // If it's FormData (file upload), don't set Content-Type
-            if (!(candidateData instanceof FormData)) {
-                headers['Content-Type'] = 'application/json';
-            }
+            console.log('Updating candidate with headers:', headers);
+            console.log('Candidate data:', candidateData);
             
             const response = await fetch(`${API_BASE_URL}/candidates/${id}`, {
-                method: 'PUT', // Using POST with _method for Laravel
-                headers,
-                body: candidateData instanceof FormData ? candidateData : JSON.stringify(candidateData)
+                method: 'PUT',
+                headers: headers,
+                body: JSON.stringify(candidateData)
             });
             
+            console.log('Update response status:', response.status);
+            
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to update candidate');
+                const errorText = await response.text();
+                console.error('Update response error:', errorText);
+                throw new Error(`Failed to update candidate: ${response.status} ${errorText}`);
             }
             
-            return await response.json();
+            const result = await response.json();
+            console.log('Update response result:', result);
+            return result;
         } catch (error) {
             console.error('API Update Candidate Error:', error);
             throw error;
@@ -215,17 +254,25 @@ class ApiService {
 
     static async deleteCandidate(id) {
         try {
+            const headers = this.getAuthHeaders();
+            console.log('Deleting candidate with headers:', headers);
+            
             const response = await fetch(`${API_BASE_URL}/candidates/${id}`, {
                 method: 'DELETE',
-                headers: this.getAuthHeaders()
+                headers: headers
             });
             
+            console.log('Delete response status:', response.status);
+            
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to delete candidate');
+                const errorText = await response.text();
+                console.error('Delete response error:', errorText);
+                throw new Error(`Failed to delete candidate: ${response.status} ${errorText}`);
             }
             
-            return await response.json();
+            const result = await response.json();
+            console.log('Delete response result:', result);
+            return result;
         } catch (error) {
             console.error('API Delete Candidate Error:', error);
             throw error;

@@ -1,405 +1,314 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import ApiService from '../../api.js';
-import './login.css';
-import './Voting.css';
+import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import ApiService from '../../api.js'
+import './payment-modal.css'
+import VoteHistory from './VoteHistory'
 
 export default function Voting() {
-  const [candidates, setCandidates] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [votingFor, setVotingFor] = useState(null);
-  const [voteCount, setVoteCount] = useState(1);
-  const [voteHistory, setVoteHistory] = useState([]);
-  const [showHistory, setShowHistory] = useState(false);
-  const [results, setResults] = useState([]);
-  const [showResults, setShowResults] = useState(false);
-  
-  const user = localStorage.getItem("currentUser");
-  const navigate = useNavigate();
+  const navigate = useNavigate()
+  const user = localStorage.getItem("currentUser")
+  const [canVote, setCanVote] = useState(true)
+  const [voteCounts, setVoteCounts] = useState({})
+  const [showPayment, setShowPayment] = useState(false)
+  const [method, setMethod] = useState('')
+  const [selectedCandidate, setSelectedCandidate] = useState(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const [candidates, setCandidates] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [votingStatus, setVotingStatus] = useState({
+    canVote: true,
+    nextVoteDate: null,
+    todayVote: null
+  })
 
-  // Check authentication
+  // Load candidates and check voting status
   useEffect(() => {
-    if (!user || user === 'admin') {
-      navigate('/');
-      return;
-    }
-    loadData();
-  }, [user, navigate]);
+    if (!user) return navigate('/')
 
-  // Load all necessary data
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      await Promise.all([
-        loadCandidates(),
-        loadVoteHistory(),
-        loadResults()
-      ]);
-    } catch (error) {
-      console.error('Failed to load data:', error);
-      setError('Failed to load voting data. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Load candidates from backend
-  const loadCandidates = async () => {
-    try {
-      const backendCandidates = await ApiService.fetchCandidates();
-      setCandidates(backendCandidates);
-    } catch (error) {
-      console.error('Failed to load candidates:', error);
-      // Fallback to local storage if needed
-      const localCandidates = JSON.parse(localStorage.getItem('candidates') || '[]');
-      setCandidates(localCandidates);
-    }
-  };
-
-  // Load vote history
-  const loadVoteHistory = async () => {
-    try {
-      const history = await ApiService.getVoteHistory();
-      setVoteHistory(history);
-    } catch (error) {
-      console.error('Failed to load vote history:', error);
-      // Fallback to localStorage
-      const localHistory = JSON.parse(localStorage.getItem(`${user}_votes`) || '[]');
-      setVoteHistory(localHistory);
-    }
-  };
-
-  // Load results
-  const loadResults = async () => {
-    try {
-      const resultsData = await ApiService.getResults();
-      setResults(resultsData);
-    } catch (error) {
-      console.error('Failed to load results:', error);
-    }
-  };
-
-  // Cast vote
-  const handleVote = async (candidateId) => {
-    if (!candidateId || voteCount < 1 || voteCount > 10) {
-      setError('Please select a valid number of votes (1-10)');
-      return;
-    }
-
-    try {
-      setLoading(true);
+    const loadData = async () => {
+      setIsLoading(true)
       
-      // Try backend first
       try {
-        await ApiService.castVote({
-          candidate_id: candidateId,
-          votes_count: voteCount
-        });
-        
-        const candidate = candidates.find(c => c.id === candidateId);
-        setSuccess(`Successfully cast ${voteCount} vote(s) for ${candidate.name}!`);
-        
-        // Reload data
-        await loadData();
-        
-      } catch (backendError) {
-        console.log('Backend voting failed, using localStorage fallback:', backendError.message);
-        
-        // Fallback to localStorage
-        const candidate = candidates.find(c => c.id === candidateId);
-        if (!candidate) {
-          setError('Candidate not found');
-          return;
+        // Load candidates from backend
+        const backendCandidates = await ApiService.fetchCandidates();
+        if (backendCandidates && backendCandidates.length > 0) {
+          setCandidates(backendCandidates);
+        } else {
+          // Fallback to default candidates if backend fails
+          setCandidates([
+            { id: 1, name: 'Candidate 1', info: 'Info here', img: '/default.jpg' },
+            { id: 2, name: 'Candidate 2', info: 'Info here', img: '/default.jpg' },
+            { id: 3, name: 'Candidate 3', info: 'Info here', img: '/default.jpg' },
+            { id: 4, name: 'Candidate 4', info: 'Info here', img: '/default.jpg' },
+            { id: 5, name: 'Candidate 5', info: 'Info here', img: '/default.jpg' },
+            { id: 6, name: 'Candidate 6', info: 'Info here', img: '/default.jpg' },
+            { id: 7, name: 'Candidate 7', info: 'Info here', img: '/default.jpg' },
+            { id: 8, name: 'Candidate 8', info: 'Info here', img: '/default.jpg' },
+            { id: 9, name: 'Candidate 9', info: 'Info here', img: '/default.jpg' },
+            { id: 10, name: 'Candidate 10', info: 'Info here', img: '/default.jpg' },
+            { id: 11, name: 'Candidate 11', info: 'Info here', img: '/default.jpg' },
+            { id: 12, name: 'Candidate 12', info: 'Info here', img: '/default.jpg' },
+            { id: 13, name: 'Candidate 13', info: 'Info here', img: '/default.jpg' },
+          ])
         }
 
-        // Check if user has already voted today (localStorage fallback)
-        const userVotes = JSON.parse(localStorage.getItem(`${user}_votes`) || '[]');
-        const today = new Date().toDateString();
-        const todayVotes = userVotes.filter(vote => 
-          new Date(vote.date).toDateString() === today
-        );
+        // Check if user can vote today
+        const votingStatus = await ApiService.canVote();
+        setVotingStatus(votingStatus);
+        setCanVote(votingStatus.can_vote);
 
-        if (todayVotes.length >= 3) {
-          setError('You have reached your daily voting limit (3 votes per day)');
-          return;
+        // Load vote counts for all candidates
+        await loadVoteCounts(backendCandidates);
+
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        // Fallback to localStorage if backend fails
+        const storedCandidates = JSON.parse(localStorage.getItem('candidates'))
+        if (storedCandidates && storedCandidates.length > 0) {
+          setCandidates(storedCandidates)
         }
-
-        // Add vote to localStorage
-        const newVote = {
-          id: Date.now(),
-          candidate_id: candidateId,
-          candidate_name: candidate.name,
-          votes_count: voteCount,
-          date: new Date().toISOString()
-        };
-
-        userVotes.push(newVote);
-        localStorage.setItem(`${user}_votes`, JSON.stringify(userVotes));
         
-        // Update local results
-        const localResults = JSON.parse(localStorage.getItem('voting_results') || '{}');
-        localResults[candidateId] = (localResults[candidateId] || 0) + voteCount;
-        localStorage.setItem('voting_results', JSON.stringify(localResults));
-        
-        setSuccess(`Successfully cast ${voteCount} vote(s) for ${candidate.name}!`);
-        await loadVoteHistory();
+        // Check localStorage for voting status
+        const data = JSON.parse(localStorage.getItem(user))
+        const lastVote = data?.lastVote
+        const today = new Date().toDateString()
+        if (lastVote === today) {
+          setCanVote(false)
+          setVotingStatus({
+            canVote: false,
+            nextVoteDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            todayVote: null
+          })
+        }
+      } finally {
+        setIsLoading(false)
       }
-      
-      setVotingFor(null);
-      setVoteCount(1);
-      
+    };
+
+    loadData();
+
+    // Listen for updates from admin
+    const syncFromStorage = () => {
+      const updatedCandidates = JSON.parse(localStorage.getItem('candidates'))
+      if (updatedCandidates) setCandidates(updatedCandidates)
+    }
+    window.addEventListener('storage', syncFromStorage)
+    return () => window.removeEventListener('storage', syncFromStorage)
+
+  }, [navigate, user])
+
+  // Load vote counts for all candidates
+  const loadVoteCounts = async (candidatesList) => {
+    try {
+      const counts = {};
+      for (const candidate of candidatesList) {
+        try {
+          const response = await ApiService.getCandidateVotes(candidate.id);
+          counts[candidate.id] = response.total_votes || 0;
+        } catch (error) {
+          console.error(`Failed to load votes for candidate ${candidate.id}:`, error);
+          counts[candidate.id] = 0;
+        }
+      }
+      setVoteCounts(counts);
     } catch (error) {
-      console.error('Voting failed:', error);
-      setError('Failed to cast vote. Please try again.');
-    } finally {
-      setLoading(false);
+      console.error('Failed to load vote counts:', error);
     }
   };
 
-  // Purchase more votes (placeholder)
-  const handlePurchaseVotes = async (votesToPurchase) => {
+  // Refresh vote counts after voting
+  const refreshVoteCounts = async () => {
+    if (candidates.length > 0) {
+      await loadVoteCounts(candidates);
+    }
+  };
+
+  const handleVote = async (id) => {
+    if (!canVote) {
+      alert("You've already voted today! You can vote again tomorrow.")
+      return
+    }
+
+    setIsLoading(true)
+    const selectedCandidate = candidates.find(c => c.id === id)
+
     try {
-      setLoading(true);
-      
-      const response = await ApiService.purchaseVotes({
-        votes_count: votesToPurchase
+      const response = await ApiService.castVote({ 
+        candidate_id: id, 
+        type: 'free' 
       });
       
-      setSuccess(`Successfully purchased ${votesToPurchase} votes for $${votesToPurchase}.00!`);
-      
+      if (response.success || response.message) {
+        alert(`You voted for ${selectedCandidate.name}! You have used your daily vote.`)
+        setCanVote(false)
+        setVotingStatus({
+          canVote: false,
+          nextVoteDate: response.next_vote_date,
+          todayVote: {
+            candidate_name: selectedCandidate.name,
+            vote_type: 'free',
+            voted_at: new Date().toISOString()
+          }
+        })
+        
+        // Update local storage for fallback
+        const userData = JSON.parse(localStorage.getItem(user) || '{}')
+        userData.lastVote = new Date().toDateString()
+        localStorage.setItem(user, JSON.stringify(userData))
+        
+        // Save vote history
+        const history = JSON.parse(localStorage.getItem(user + '_history')) || []
+        history.push({ candidate: selectedCandidate.name, date: new Date().toDateString() })
+        localStorage.setItem(user + '_history', JSON.stringify(history))
+        
+        // Refresh vote counts after successful vote
+        await refreshVoteCounts();
+        
+        return;
+      }
     } catch (error) {
-      console.error('Purchase failed:', error);
-      setError('Vote purchase is currently unavailable. Please try again later.');
+      if (error.message.includes('already voted today')) {
+        alert("You have already voted today! You can only vote once per day.")
+        setCanVote(false)
+        // Refresh voting status
+        try {
+          const votingStatus = await ApiService.canVote();
+          setVotingStatus(votingStatus);
+          setCanVote(votingStatus.can_vote);
+        } catch (refreshError) {
+          console.error('Failed to refresh voting status:', refreshError);
+        }
+      } else {
+        alert(`Vote failed: ${error.message}`)
+      }
     } finally {
-      setLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   const handleLogout = () => {
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('auth_token');
-    navigate('/');
-  };
+    localStorage.removeItem("currentUser")
+    navigate('/')
+  }
 
-  // Clear messages after 3 seconds
-  useEffect(() => {
-    if (success || error) {
-      const timer = setTimeout(() => {
-        setSuccess('');
-        setError('');
-      }, 3000);
-      return () => clearTimeout(timer);
+  const handleVoteAgain = (candidate) => {
+    setSelectedCandidate(candidate)
+    setShowPayment(true)
+  }
+
+  const handleClose = () => {
+    setShowPayment(false)
+    setMethod('')
+    setSelectedCandidate(null)
+  }
+
+  const handlePayment = (e) => {
+    e.preventDefault()
+    if (!method) {
+      alert('Please select a payment method.')
+      return
     }
-  }, [success, error]);
+    alert(`Proceeding with payment via ${method} for ${selectedCandidate?.name}`)
+    setShowPayment(false)
+  }
 
-  if (loading && candidates.length === 0) {
-    return (
-      <div className="voting-container">
-        <div className="loading">Loading voting data...</div>
-      </div>
-    );
+  const handleShowHistory = () => setShowHistory(true)
+  const handleCloseHistory = () => setShowHistory(false)
+
+  const formatNextVoteDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
   }
 
   return (
-    <div className="voting-container">
-      {/* Header */}
-      <div className="voting-header">
-        <div className="header-content">
-          <h2>Pageant Voting System</h2>
-          <p className="welcome-text">Welcome, {user}!</p>
-        </div>
-        <div className="header-actions">
-          <button 
-            className="action-btn history-btn"
-            onClick={() => setShowHistory(!showHistory)}
-          >
-            {showHistory ? 'Hide History' : 'Vote History'}
-          </button>
-          <button 
-            className="action-btn results-btn"
-            onClick={() => setShowResults(!showResults)}
-          >
-            {showResults ? 'Hide Results' : 'View Results'}
-          </button>
-          <button className="logout-btn" onClick={handleLogout}>
-            Logout
-          </button>
-        </div>
+    <div className="container">
+      <div className="header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button onClick={handleShowHistory} className="history-btn" style={{ marginRight: 'auto' }}>Vote History</button>
+        <h2 style={{ margin: '0 auto' }}>Vote for Your Favorite</h2>
+        <button onClick={handleLogout} className="logout-btn">Logout</button>
       </div>
 
-      {/* Messages */}
-      {error && <div className="error-message">{error}</div>}
-      {success && <div className="success-message">{success}</div>}
+      {/* Voting Status Banner */}
+      {!canVote && votingStatus.todayVote && (
+        <div className="voting-status-banner">
+          <h3>You've Voted Today!</h3>
+          <p>
+            <strong>Voted for:</strong> {votingStatus.todayVote.candidate_name}
+          </p>
+          <p>
+            <strong>Vote type:</strong> {votingStatus.todayVote.vote_type === 'free' ? 'Free Vote' : 'Paid Vote'}
+          </p>
+          <p>
+            <strong>Next vote available:</strong> {formatNextVoteDate(votingStatus.nextVoteDate)}
+          </p>
+        </div>
+      )}
 
-      {/* Vote History */}
+      {isLoading && (
+        <div className="loading-container">
+          <h3>Loading...</h3>
+        </div>
+      )}
+
+      <div className="grid">
+        {candidates.map(c => (
+          <div key={c.id} className="candidate-card">
+            <div className="candidate-info">
+              <img src={c.image || 'https://via.placeholder.com/150x200/4A90E2/FFFFFF?text=Photo'} alt={c.name} className="candidate-img" />
+              <h4 className="candidate-name">{c.name}</h4>
+              <p className="candidate-description">{c.description || 'No description available'}</p>
+            </div>
+            
+            <div className="candidate-actions">
+              {!canVote ? (
+                              <button className="payment-required-btn" onClick={() => handleVoteAgain(c)}>
+                Vote Again (Payment Required)
+              </button>
+              ) : (
+                <button 
+                  className="vote-btn"
+                  onClick={() => handleVote(c.id)}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Voting...' : 'Vote Now'}
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showPayment && (
+        <div className="payment-modal-overlay">
+          <div className="payment-modal">
+            <h3>Do you still want to vote?</h3>
+            <p>Here is the payment for another voting for <b>{selectedCandidate?.name}</b>:</p>
+            <form onSubmit={handlePayment}>
+              <label>
+                <input type="radio" name="payment" value="GCash" checked={method === 'GCash'} onChange={() => setMethod('GCash')} /> GCash
+              </label>
+              <label>
+                <input type="radio" name="payment" value="PayMaya" checked={method === 'PayMaya'} onChange={() => setMethod('PayMaya')} /> PayMaya
+              </label>
+              <label>
+                <input type="radio" name="payment" value="Bank" checked={method === 'Bank'} onChange={() => setMethod('Bank')} /> Bank
+              </label>
+              <button type="submit">Proceed to Pay</button>
+              <button type="button" className="close-btn" onClick={handleClose}>Cancel</button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showHistory && (
-        <div className="section vote-history-section">
-          <h3>Your Vote History</h3>
-          {voteHistory.length === 0 ? (
-            <p className="no-data">No votes cast yet.</p>
-          ) : (
-            <div className="history-list">
-              {voteHistory.map((vote, index) => (
-                <div key={vote.id || index} className="history-item">
-                  <div className="history-info">
-                    <strong>{vote.candidate?.name || vote.candidate_name}</strong>
-                    <span className="vote-count">{vote.votes_count} vote(s)</span>
-                  </div>
-                  <div className="history-date">
-                    {new Date(vote.created_at || vote.date).toLocaleDateString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <VoteHistory user={user} onClose={handleCloseHistory} candidates={candidates} />
       )}
-
-      {/* Results */}
-      {showResults && (
-        <div className="section results-section">
-          <h3>Current Results</h3>
-          {results.length === 0 ? (
-            <p className="no-data">No results available yet.</p>
-          ) : (
-            <div className="results-list">
-              {results
-                .sort((a, b) => b.total_votes - a.total_votes)
-                .map((result, index) => (
-                  <div key={result.id} className="result-item">
-                    <div className="result-rank">#{index + 1}</div>
-                    <div className="result-info">
-                      <strong>{result.name}</strong>
-                      <div className="result-stats">
-                        <span className="total-votes">{result.total_votes} total votes</span>
-                        <span className="unique-voters">{result.unique_voters} voters</span>
-                      </div>
-                    </div>
-                    <div className="result-percentage">
-                      {results.reduce((sum, r) => sum + parseInt(r.total_votes), 0) > 0
-                        ? Math.round((result.total_votes / results.reduce((sum, r) => sum + parseInt(r.total_votes), 0)) * 100)
-                        : 0
-                      }%
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Voting Section */}
-      <div className="section voting-section">
-        <h3>Cast Your Vote</h3>
-        {candidates.length === 0 ? (
-          <div className="no-candidates">
-            <p>No candidates available for voting at this time.</p>
-          </div>
-        ) : (
-          <div className="candidates-grid">
-            {candidates.map(candidate => (
-              <div key={candidate.id} className="candidate-card">
-                <div className="candidate-image">
-                  <img 
-                    src={candidate.image || 'https://via.placeholder.com/300x300?text=No+Image'} 
-                    alt={candidate.name}
-                  />
-                </div>
-                
-                <div className="candidate-info">
-                  <h4>{candidate.name}</h4>
-                  {candidate.description && (
-                    <p className="description">{candidate.description}</p>
-                  )}
-                </div>
-                
-                <div className="voting-controls">
-                  {votingFor === candidate.id ? (
-                    <div className="vote-form">
-                      <div className="vote-input-group">
-                        <label>Number of votes:</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="10"
-                          value={voteCount}
-                          onChange={(e) => setVoteCount(parseInt(e.target.value))}
-                          className="vote-input"
-                        />
-                      </div>
-                      <div className="vote-actions">
-                        <button 
-                          className="confirm-vote-btn"
-                          onClick={() => handleVote(candidate.id)}
-                          disabled={loading}
-                        >
-                          {loading ? 'Voting...' : 'Confirm Vote'}
-                        </button>
-                        <button 
-                          className="cancel-vote-btn"
-                          onClick={() => {
-                            setVotingFor(null);
-                            setVoteCount(1);
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button 
-                      className="vote-btn"
-                      onClick={() => setVotingFor(candidate.id)}
-                      disabled={loading}
-                    >
-                      Vote for {candidate.name}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Purchase Votes Section */}
-      <div className="section purchase-section">
-        <h3>Purchase Additional Votes</h3>
-        <div className="purchase-options">
-          <div className="purchase-info">
-            <p>Need more votes? Purchase additional votes for $1.00 each.</p>
-          </div>
-          <div className="purchase-buttons">
-            <button 
-              className="purchase-btn"
-              onClick={() => handlePurchaseVotes(5)}
-              disabled={loading}
-            >
-              Buy 5 votes - $5.00
-            </button>
-            <button 
-              className="purchase-btn"
-              onClick={() => handlePurchaseVotes(10)}
-              disabled={loading}
-            >
-              Buy 10 votes - $10.00
-            </button>
-            <button 
-              className="purchase-btn"
-              onClick={() => handlePurchaseVotes(25)}
-              disabled={loading}
-            >
-              Buy 25 votes - $25.00
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <footer className="voting-footer">
-        <p>&copy; Altatech Solutions Inc</p>
-      </footer>
     </div>
-  );
+  )
 }

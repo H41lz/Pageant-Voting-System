@@ -10,14 +10,12 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // Create admin user (check if exists first)
-        User::firstOrCreate(
-            ['email' => 'admin@pageant.com'],
-            [
-                'password' => Hash::make('password'),
-                'role' => 'admin',
-            ]
-        );
+        // Create admin user
+        User::create([
+            'email' => 'admin@pageant.com',
+            'password' => Hash::make('password'),
+            'role' => 'admin',
+        ]);
 
         // Create test users
         $users = [
@@ -38,14 +36,8 @@ class UserSeeder extends Seeder
             ],
         ];
 
-        foreach ($users as $userData) {
-            User::firstOrCreate(
-                ['email' => $userData['email']],
-                [
-                    'password' => $userData['password'],
-                    'role' => $userData['role'],
-                ]
-            );
+        foreach ($users as $user) {
+            User::create($user);
         }
     }
-}
+} 

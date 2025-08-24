@@ -6,110 +6,169 @@ import './login.css';
 
 export default function Admin() {
   const [candidates, setCandidates] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [editedCandidates, setEditedCandidates] = useState([]);
+  const [newCandidateName, setNewCandidateName] = useState('');
+  const [newCandidateDescription, setNewCandidateDescription] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingCandidate, setEditingCandidate] = useState(null);
-  
-  // Form states
-  const [newCandidate, setNewCandidate] = useState({
-    name: '',
-    description: '',
-    image: null
-  });
-  
-  const [editForm, setEditForm] = useState({
-    name: '',
-    description: '',
-    image: null
-  });
-
+  const [voteCounts, setVoteCounts] = useState({});
   const user = localStorage.getItem("currentUser");
+  const userRole = localStorage.getItem("userRole");
   const navigate = useNavigate();
 
   // Check if user is admin
   useEffect(() => {
-    if (user !== 'admin') {
+    if (!user || userRole !== 'admin') {
       navigate('/');
       return;
     }
-    loadCandidates();
-  }, [user, navigate]);
+  }, [user, userRole, navigate]);
 
-  // Load candidates from backend
-  const loadCandidates = async () => {
+  // Load candidates and vote counts from database
+  useEffect(() => {
+    const loadCandidates = async () => {
+      setIsLoading(true);
+      try {
+        const backendCandidates = await ApiService.fetchCandidates();
+        setCandidates(backendCandidates);
+        setEditedCandidates(backendCandidates);
+        
+        // Load vote counts for each candidate
+        await loadVoteCounts(backendCandidates);
+      } catch (error) {
+        console.error('Failed to load candidates:', error);
+        setError('Failed to load candidates. Please refresh the page.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (user && userRole === 'admin') {
+      loadCandidates();
+    }
+  }, [user, userRole]);
+
+  // Load vote counts for all candidates
+  const loadVoteCounts = async (candidatesList) => {
     try {
-      setLoading(true);
-      const backendCandidates = await ApiService.fetchCandidates();
-      setCandidates(backendCandidates);
-      setError('');
+      const counts = {};
+      for (const candidate of candidatesList) {
+        try {
+          const response = await ApiService.getCandidateVotes(candidate.id);
+          counts[candidate.id] = {
+            free_votes: response.free_votes || 0,
+            paid_votes: response.paid_votes || 0,
+            total_votes: response.total_votes || 0
+          };
+        } catch (error) {
+          console.error(`Failed to load votes for candidate ${candidate.id}:`, error);
+          counts[candidate.id] = { free_votes: 0, paid_votes: 0, total_votes: 0 };
+        }
+      }
+      setVoteCounts(counts);
     } catch (error) {
-      console.error('Failed to load candidates:', error);
-      setError('Failed to load candidates. Please try again.');
-    } finally {
-      setLoading(false);
+      console.error('Failed to load vote counts:', error);
     }
   };
 
-  // Handle new candidate form submission
-  const handleAddCandidate = async (e) => {
-    e.preventDefault();
-    if (!newCandidate.name.trim()) {
+  // Refresh vote counts after operations
+  const refreshVoteCounts = async () => {
+    if (candidates.length > 0) {
+      await loadVoteCounts(candidates);
+    }
+  };
+
+  // Add new candidate
+  const handleAddCandidate = async () => {
+    if (!newCandidateName.trim()) {
       setError('Candidate name is required');
       return;
     }
 
+    setIsLoading(true);
+    setError('');
+    
+    // Debug: Check authentication
+    const token = localStorage.getItem('auth_token');
+    console.log('Auth token:', token);
+    console.log('User role:', userRole);
+    
     try {
-      setLoading(true);
-      const formData = new FormData();
-      formData.append('name', newCandidate.name);
-      formData.append('description', newCandidate.description || '');
-      if (newCandidate.image) {
-        formData.append('image', newCandidate.image);
-      }
+      const newCandidate = {
+        name: newCandidateName,
+        description: newCandidateDescription || '',
+        image: null
+      };
 
-      await ApiService.createCandidate(formData);
+      console.log('Creating candidate:', newCandidate);
+      const response = await ApiService.createCandidate(newCandidate);
+      console.log('Response:', response);
+      
+      // Add to local state
+      const candidateWithId = { ...response, id: response.id };
+      setCandidates([...candidates, candidateWithId]);
+      setEditedCandidates([...editedCandidates, candidateWithId]);
+      
+      // Initialize vote counts for new candidate
+      setVoteCounts(prev => ({
+        ...prev,
+        [response.id]: { free_votes: 0, paid_votes: 0, total_votes: 0 }
+      }));
+      
+      // Clear form
+      setNewCandidateName('');
+      setNewCandidateDescription('');
       setSuccess('Candidate added successfully!');
-      setNewCandidate({ name: '', description: '', image: null });
-      setShowAddForm(false);
-      loadCandidates(); // Reload the list
+      
+      setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Failed to add candidate:', error);
+      console.error('Error details:', error.message, error.stack);
       setError('Failed to add candidate. Please try again.');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  // Handle edit candidate form submission
-  const handleEditCandidate = async (e) => {
-    e.preventDefault();
-    if (!editForm.name.trim()) {
-      setError('Candidate name is required');
-      return;
-    }
+  // Update candidate
+  const handleEdit = (id, field, value) => {
+    const updated = editedCandidates.map(c => 
+      c.id === id ? { ...c, [field]: value } : c
+    );
+    setEditedCandidates(updated);
+  };
 
+  // Save individual candidate changes
+  const handleSaveCandidate = async (candidate) => {
+    setIsLoading(true);
+    setError('');
+    
     try {
-      setLoading(true);
-      const formData = new FormData();
-      formData.append('name', editForm.name);
-      formData.append('description', editForm.description || '');
-      if (editForm.image) {
-        formData.append('image', editForm.image);
-      }
-
-      await ApiService.updateCandidate(editingCandidate.id, formData);
+      await ApiService.updateCandidate(candidate.id, candidate);
+      
+      // Update local state
+      setCandidates(candidates.map(c => 
+        c.id === candidate.id ? candidate : c
+      ));
+      
       setSuccess('Candidate updated successfully!');
-      setEditingCandidate(null);
-      setEditForm({ name: '', description: '', image: null });
-      loadCandidates(); // Reload the list
+      setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Failed to update candidate:', error);
       setError('Failed to update candidate. Please try again.');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
+  };
+
+  // Photo upload
+  const handlePhotoChange = (id, file) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      handleEdit(id, 'image', reader.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   // Delete candidate
@@ -118,256 +177,208 @@ export default function Admin() {
       return;
     }
 
+    setIsLoading(true);
+    setError('');
+    
     try {
-      setLoading(true);
       await ApiService.deleteCandidate(id);
+      
+      // Remove from local state
+      const filtered = candidates.filter(c => c.id !== id);
+      const filteredEdited = editedCandidates.filter(c => c.id !== id);
+      
+      setCandidates(filtered);
+      setEditedCandidates(filteredEdited);
+      
+      // Remove vote counts for deleted candidate
+      setVoteCounts(prev => {
+        const newCounts = { ...prev };
+        delete newCounts[id];
+        return newCounts;
+      });
+      
       setSuccess('Candidate deleted successfully!');
-      loadCandidates(); // Reload the list
+      setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Failed to delete candidate:', error);
       setError('Failed to delete candidate. Please try again.');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  };
-
-  // Start editing a candidate
-  const startEdit = (candidate) => {
-    setEditingCandidate(candidate);
-    setEditForm({
-      name: candidate.name,
-      description: candidate.description || '',
-      image: null
-    });
-  };
-
-  // Cancel editing
-  const cancelEdit = () => {
-    setEditingCandidate(null);
-    setEditForm({ name: '', description: '', image: null });
-  };
-
-  // Handle file input change
-  const handleFileChange = (e, setter) => {
-    const file = e.target.files[0];
-    if (file) {
-      setter(prev => ({ ...prev, image: file }));
-    }
-  };
-
-  // Handle input change
-  const handleInputChange = (e, setter) => {
-    const { name, value } = e.target;
-    setter(prev => ({ ...prev, [name]: value }));
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('userRole');
     navigate('/');
   };
 
-  // Clear messages after 3 seconds
-  useEffect(() => {
-    if (success || error) {
-      const timer = setTimeout(() => {
-        setSuccess('');
-        setError('');
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [success, error]);
-
-  if (loading && candidates.length === 0) {
+  if (isLoading && candidates.length === 0) {
     return (
       <div className="admin-container">
-        <div className="loading">Loading candidates...</div>
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <h3>Loading candidates...</h3>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="admin-container">
+      <button className="admin-logout-btn" onClick={handleLogout}>Logout</button>
+
       <div className="admin-header">
-        <h2>Admin Panel - Candidate Management</h2>
-        <button className="admin-logout-btn" onClick={handleLogout}>Logout</button>
-      </div>
-
-      {/* Messages */}
-      {error && <div className="error-message">{error}</div>}
-      {success && <div className="success-message">{success}</div>}
-
-      {/* Add Candidate Section */}
-      <div className="admin-section">
-        <div className="section-header">
-          <h3>Add New Candidate</h3>
+        <h2>Admin Panel</h2>
+        <div className="admin-stats">
+          <span className="candidate-count">Total Candidates: {editedCandidates.length}</span>
           <button 
-            className="toggle-btn"
-            onClick={() => setShowAddForm(!showAddForm)}
+            onClick={refreshVoteCounts} 
+            style={{
+              background: 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)',
+              color: 'white',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600',
+              marginLeft: '10px'
+            }}
           >
-            {showAddForm ? 'Hide Form' : 'Show Form'}
+            🔄 Refresh Votes
           </button>
         </div>
-        
-        {showAddForm && (
-          <form onSubmit={handleAddCandidate} className="candidate-form">
-            <div className="form-group">
-              <label>Name: *</label>
-              <input
-                type="text"
-                name="name"
-                value={newCandidate.name}
-                onChange={(e) => handleInputChange(e, setNewCandidate)}
-                placeholder="Enter candidate name"
-                required
-              />
-            </div>
-            
-            <div className="form-group">
-              <label>Description:</label>
-              <textarea
-                name="description"
-                value={newCandidate.description}
-                onChange={(e) => handleInputChange(e, setNewCandidate)}
-                placeholder="Enter candidate description"
-                rows="3"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label>Photo:</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleFileChange(e, setNewCandidate)}
-              />
-            </div>
-            
-            <div className="form-actions">
-              <button type="submit" disabled={loading}>
-                {loading ? 'Adding...' : 'Add Candidate'}
-              </button>
-              <button 
-                type="button" 
-                onClick={() => setShowAddForm(false)}
-                className="cancel-btn"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
       </div>
 
-      {/* Candidates List */}
-      <div className="admin-section">
-        <h3>Manage Candidates ({candidates.length})</h3>
-        
-        {candidates.length === 0 ? (
-          <div className="no-candidates">
-            <p>No candidates found. Add your first candidate above.</p>
-          </div>
-        ) : (
-          <div className="candidates-grid">
-            {candidates.map(candidate => (
-              <div key={candidate.id} className="candidate-card">
-                <div className="candidate-image">
-                  <img 
-                    src={candidate.image || 'https://via.placeholder.com/200x200?text=No+Image'} 
-                    alt={candidate.name}
+      {/* Add Candidate Form */}
+      <div className="add-candidate-form">
+        <h3>Add New Candidate</h3>
+        <div className="form-row">
+          <input
+            type="text"
+            placeholder="Candidate Name"
+            value={newCandidateName}
+            onChange={e => setNewCandidateName(e.target.value)}
+            disabled={isLoading}
+          />
+        </div>
+        <div className="form-row">
+          <textarea
+            placeholder="Description (optional)"
+            value={newCandidateDescription}
+            onChange={e => setNewCandidateDescription(e.target.value)}
+            disabled={isLoading}
+          />
+        </div>
+        <button onClick={handleAddCandidate} disabled={isLoading}>
+          {isLoading ? 'Adding...' : 'Add Candidate'}
+        </button>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && <div className="success-message">{success}</div>}
+      {error && <div className="error-message">{error}</div>}
+
+      {/* Candidates Grid */}
+      <div className="candidates-grid">
+        {editedCandidates.map(c => (
+          <div key={c.id} className="candidate-card">
+            <div className="candidate-header">
+              <h4>Candidate #{c.id}</h4>
+              <div className="candidate-actions">
+                <button 
+                  className="save-candidate-btn" 
+                  onClick={() => handleSaveCandidate(c)}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Saving...' : 'Save'}
+                </button>
+                <button 
+                  className="delete-candidate-btn" 
+                  onClick={() => handleDeleteCandidate(c.id)}
+                  disabled={isLoading}
+                  type="button"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+            
+            <div className="candidate-content">
+              <div className="candidate-image-section">
+                <img 
+                  src={c.image || 'https://via.placeholder.com/150x200/4A90E2/FFFFFF?text=Photo'} 
+                  alt={c.name} 
+                  className="candidate-image"
+                />
+                <div className="image-upload">
+                  <label htmlFor={`photo-${c.id}`} className="upload-label">
+                    Change Photo
+                  </label>
+                  <input
+                    id={`photo-${c.id}`}
+                    type="file"
+                    accept="image/*"
+                    onChange={e => handlePhotoChange(c.id, e.target.files[0])}
+                    disabled={isLoading}
+                    className="photo-input"
+                  />
+                </div>
+              </div>
+              
+              <div className="candidate-fields">
+                <div className="field-group">
+                  <label>Name:</label>
+                  <input
+                    type="text"
+                    value={c.name}
+                    onChange={e => handleEdit(c.id, 'name', e.target.value)}
+                    disabled={isLoading}
+                    className="candidate-input"
                   />
                 </div>
                 
-                <div className="candidate-info">
-                  <h4>{candidate.name}</h4>
-                  {candidate.description && (
-                    <p className="description">{candidate.description}</p>
-                  )}
-                  <p className="created-at">
-                    Created: {new Date(candidate.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                
-                <div className="candidate-actions">
-                  <button 
-                    className="edit-btn"
-                    onClick={() => startEdit(candidate)}
-                    disabled={loading}
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    className="delete-btn"
-                    onClick={() => handleDeleteCandidate(candidate.id)}
-                    disabled={loading}
-                  >
-                    Delete
-                  </button>
+                <div className="field-group">
+                  <label>Description:</label>
+                  <textarea
+                    value={c.description || ''}
+                    onChange={e => handleEdit(c.id, 'description', e.target.value)}
+                    disabled={isLoading}
+                    className="candidate-textarea"
+                    rows="4"
+                  />
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Edit Modal */}
-      {editingCandidate && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h3>Edit Candidate: {editingCandidate.name}</h3>
-              <button className="close-btn" onClick={cancelEdit}>&times;</button>
             </div>
-            
-            <form onSubmit={handleEditCandidate} className="candidate-form">
-              <div className="form-group">
-                <label>Name: *</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={editForm.name}
-                  onChange={(e) => handleInputChange(e, setEditForm)}
-                  placeholder="Enter candidate name"
-                  required
-                />
+
+            {/* Vote Statistics Section */}
+            <div className="vote-statistics">
+              <div className="stat-item">
+                <div className="stat-label">Free Votes</div>
+                <div className="stat-value free-votes">
+                  {voteCounts[c.id]?.free_votes || 0}
+                </div>
               </div>
               
-              <div className="form-group">
-                <label>Description:</label>
-                <textarea
-                  name="description"
-                  value={editForm.description}
-                  onChange={(e) => handleInputChange(e, setEditForm)}
-                  placeholder="Enter candidate description"
-                  rows="3"
-                />
+              <div className="stat-item">
+                <div className="stat-label">Paid Votes</div>
+                <div className="stat-value paid-votes">
+                  {voteCounts[c.id]?.paid_votes || 0}
+                </div>
               </div>
               
-              <div className="form-group">
-                <label>Photo:</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFileChange(e, setEditForm)}
-                />
-                <small>Leave empty to keep current image</small>
+              <div className="stat-item total">
+                <div className="stat-label">Total Votes</div>
+                <div className="stat-value total-votes">
+                  {voteCounts[c.id]?.total_votes || 0}
+                </div>
               </div>
-              
-              <div className="form-actions">
-                <button type="submit" disabled={loading}>
-                  {loading ? 'Updating...' : 'Update Candidate'}
-                </button>
-                <button 
-                  type="button" 
-                  onClick={cancelEdit}
-                  className="cancel-btn"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+            </div>
           </div>
-        </div>
-      )}
+        ))}
+      </div>
+      
     </div>
   );
 }

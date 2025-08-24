@@ -4,78 +4,168 @@ namespace App\Http\Controllers;
 
 use App\Models\Vote;
 use App\Models\Candidate;
+use App\Http\Requests\VoteRequest;
+use App\Http\Requests\PurchaseVoteRequest;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class VoteController extends Controller
 {
-    public function store(Request $request)
+    public function store(VoteRequest $request)
     {
-        $request->validate([
-            'candidate_id' => 'required|exists:candidates,id',
-            'votes_count' => 'required|integer|min:1|max:10'
-        ]);
-
-        $user = Auth::user();
-        $candidate = Candidate::findOrFail($request->candidate_id);
-
-        // Check if user has already voted for this candidate
-        $existingVote = Vote::where('user_id', $user->id)
-            ->where('candidate_id', $request->candidate_id)
+        $user = $request->user();
+        $type = $request->type;
+        
+        // Check if user has already voted today (any type, any candidate)
+        $todayVote = Vote::where('user_id', $user->id)
+            ->where('created_at', '>=', Carbon::now()->startOfDay())
             ->first();
-
-        if ($existingVote) {
-            // Update existing vote
-            $existingVote->votes_count += $request->votes_count;
-            $existingVote->save();
-        } else {
-            // Create new vote
-            Vote::create([
+            
+        if ($todayVote) {
+            Log::info('User attempted to vote twice in one day', [
                 'user_id' => $user->id,
-                'candidate_id' => $request->candidate_id,
-                'votes_count' => $request->votes_count,
+                'existing_vote_id' => $todayVote->id,
+                'attempted_candidate_id' => $request->candidate_id
             ]);
+            
+            return response()->json([
+                'message' => 'You have already voted today. You can only vote once per day.',
+                'error' => 'daily_limit_exceeded',
+                'next_vote_date' => Carbon::now()->addDay()->startOfDay()->toISOString()
+            ], 403);
         }
-
+        
+        // Create the vote
+        $vote = Vote::create([
+            'user_id' => $user->id,
+            'candidate_id' => $request->candidate_id,
+            'type' => $type,
+        ]);
+        
+        // Get updated vote counts for the candidate
+        $candidate = Candidate::find($request->candidate_id);
+        $freeVotes = $candidate->votes()->where('type', 'free')->count();
+        $paidVotes = $candidate->votes()->where('type', 'paid')->count();
+        $totalVotes = $freeVotes + $paidVotes;
+        
+        Log::info('Vote cast successfully', [
+            'user_id' => $user->id,
+            'candidate_id' => $request->candidate_id,
+            'candidate_name' => $candidate->name,
+            'vote_type' => $type,
+            'vote_id' => $vote->id,
+            'updated_vote_counts' => [
+                'free_votes' => $freeVotes,
+                'paid_votes' => $paidVotes,
+                'total_votes' => $totalVotes
+            ]
+        ]);
+        
         return response()->json([
-            'message' => 'Vote cast successfully',
-            'votes_cast' => $request->votes_count,
-            'candidate' => $candidate->name
+            'message' => 'Vote cast successfully! You have used your daily vote.',
+            'vote' => $vote,
+            'daily_limit_reached' => true,
+            'next_vote_date' => Carbon::now()->addDay()->startOfDay()->toISOString(),
+            'updated_vote_counts' => [
+                'free_votes' => $freeVotes,
+                'paid_votes' => $paidVotes,
+                'total_votes' => $totalVotes
+            ]
         ]);
     }
 
     public function history(Request $request)
     {
-        $user = Auth::user();
-        $votes = Vote::with('candidate')
-            ->where('user_id', $user->id)
-            ->orderBy('created_at', 'desc')
-            ->get();
-
+        $votes = $request->user()->votes()->with('candidate')->latest()->get();
         return response()->json($votes);
     }
 
-    public function purchase(Request $request)
+    public function purchase(PurchaseVoteRequest $request)
     {
-        $request->validate([
-            'votes_count' => 'required|integer|min:1|max:100'
+        $user = $request->user();
+        
+        // Check if user has already voted today (any type, any candidate)
+        $todayVote = Vote::where('user_id', $user->id)
+            ->where('created_at', '>=', Carbon::now()->startOfDay())
+            ->first();
+            
+        if ($todayVote) {
+            return response()->json([
+                'message' => 'You have already voted today. You can only vote once per day.',
+                'error' => 'daily_limit_exceeded',
+                'next_vote_date' => Carbon::now()->addDay()->startOfDay()->toISOString()
+            ], 403);
+        }
+        
+        // Create the paid votes
+        $votes = [];
+        for ($i = 0; $i < $request->quantity; $i++) {
+            $votes[] = Vote::create([
+                'user_id' => $user->id,
+                'candidate_id' => $request->candidate_id,
+                'type' => 'paid',
+            ]);
+        }
+        
+        // Bonus vote
+        $votes[] = Vote::create([
+            'user_id' => $user->id,
+            'candidate_id' => $request->candidate_id,
+            'type' => 'paid',
         ]);
-
-        // This is a placeholder for purchase logic
-        // In a real app, you'd integrate with payment gateway
+        
+        Log::info('Paid votes purchased successfully', [
+            'user_id' => $user->id,
+            'candidate_id' => $request->candidate_id,
+            'total_votes' => count($votes)
+        ]);
+        
         return response()->json([
-            'message' => 'Votes purchased successfully',
-            'votes_purchased' => $request->votes_count,
-            'total_cost' => $request->votes_count * 1.00 // $1 per vote
+            'message' => 'Paid votes purchased with bonus! You have used your daily vote.',
+            'total_votes' => count($votes),
+            'votes' => $votes,
+            'daily_limit_reached' => true,
+            'next_vote_date' => Carbon::now()->addDay()->startOfDay()->toISOString()
         ]);
     }
 
     public function adminVotes(Request $request)
     {
-        $votes = Vote::with(['user', 'candidate'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(50);
-
-        return response()->json($votes);
+        $query = Vote::with(['user', 'candidate']);
+        if ($request->has('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+        if ($request->has('type')) {
+            $query->where('type', $request->type);
+        }
+        return response()->json($query->latest()->get());
+    }
+    
+    // New method to check if user can vote today
+    public function canVote(Request $request)
+    {
+        $user = $request->user();
+        
+        $todayVote = Vote::where('user_id', $user->id)
+            ->where('created_at', '>=', Carbon::now()->startOfDay())
+            ->first();
+            
+        $canVote = !$todayVote;
+        $nextVoteDate = null;
+        
+        if (!$canVote) {
+            $nextVoteDate = Carbon::now()->addDay()->startOfDay()->toISOString();
+        }
+        
+        return response()->json([
+            'can_vote' => $canVote,
+            'next_vote_date' => $nextVoteDate,
+            'today_vote' => $todayVote ? [
+                'candidate_name' => $todayVote->candidate->name,
+                'vote_type' => $todayVote->type,
+                'voted_at' => $todayVote->created_at
+            ] : null
+        ]);
     }
 }

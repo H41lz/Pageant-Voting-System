@@ -12,18 +12,24 @@ Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->post('logout', [AuthController::class, 'logout']);
 
-// Candidates (admin only)
-Route::middleware(['auth:sanctum', 'admin'])->group(function () {
-    Route::get('candidates', [CandidateController::class, 'index']);
-    Route::post('candidates', [CandidateController::class, 'store']);
-    Route::get('candidates/{candidate}', [CandidateController::class, 'show']);
-    Route::put('candidates/{candidate}', [CandidateController::class, 'update']); // Using POST with _method for Laravel
-    Route::delete('candidates/{candidate}', [CandidateController::class, 'destroy']);
+// Test route for debugging
+Route::middleware('auth:sanctum')->get('test-auth', function (Request $request) {
+    return response()->json([
+        'user' => $request->user(),
+        'authenticated' => $request->user() !== null,
+        'role' => $request->user()->role ?? 'none'
+    ]);
+});
+
+// Candidates (admin) - simplified middleware
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('candidates', CandidateController::class)->except(['show']);
     Route::get('admin/votes', [VoteController::class, 'adminVotes']);
 });
 
-// Voting (authenticated users)
+// Voting (user)
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('votes/can-vote', [VoteController::class, 'canVote']);
     Route::post('votes', [VoteController::class, 'store']);
     Route::get('votes/history', [VoteController::class, 'history']);
     Route::post('votes/purchase', [VoteController::class, 'purchase']);
@@ -32,6 +38,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // Public endpoints
 Route::get('candidates', [CandidateController::class, 'publicIndex']);
 Route::get('results', [ResultController::class, 'index']);
+Route::get('candidates/{candidate}/votes', [ResultController::class, 'getCandidateVotes']);
 
 Route::get('/', function () {
     return response()->json([
