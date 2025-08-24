@@ -200,29 +200,172 @@ Your frontend will be available at: `http://localhost:5173`
 
 ## 🧪 API Testing with Postman
 
-### Authentication Flow
 
-#### Step 1: Login to Get Token
+**⚠️ Important** remove the "2|" when you used the Authorization
+### POSTMAN FLOW
+
+#### Step 1: Register
 ```
-POST http://127.0.0.1:8000/api/login
+POST http://127.0.0.1:8000/api/register
 Headers:
-  Content-Type: application/json
-  Accept: application/json
+   Content-Type: application/json
+   Accept: application/json
 
 Body:
 {
-  "email": "admin@pageant.com",
-  "password": "password"
+   "email": "test3@example.com",
+   "password": "password123"
 }
 ```
 
-#### Step 2: Use Token in Protected Requests
+#### Step 2: Logging in to get token
 ```
+POST http://localhost:8000/api/login
 Headers:
-  Authorization: Bearer YOUR_TOKEN_HERE
-  Accept: application/json
-  Content-Type: application/json
+   Accept: application/json
+   Content-Type: application/json
+
+Body:
+{
+   "email": "admin@pageant.com",
+   "password": "password"
+}
 ```
+
+#### Step 3: Logging Out
+```
+POST http://localhost:8000/api/logout
+Headers:
+   Authorization: Bearer {{TOKEN THAT YOU GET WHEN YOU LOGGED IN THE ADMIN ACCOUNT}}
+   Accept: application/json
+   Content-Type: application/json
+
+Body:
+{
+   "email": "admin@pageant.com",
+   "password": "password"
+}
+```
+
+#### Step 4: Voting Result
+```
+GET http://localhost:8000/api/results
+Headers:
+   Accept: application/json
+   Content-Type: application/json
+
+Body:
+{
+   "email": "admin@pageant.com",
+   "password": "password"
+}
+```
+
+#### Step 5: All Candidates
+```
+GET http://localhost:8000/api/candidates
+Headers:
+   Accept: application/json
+   Content-Type: application/json
+
+Body:
+{
+   "email": "admin@pageant.com",
+   "password": "password"
+}
+```
+
+#### Step 6: Cast Vote
+```
+POST http://localhost:8000/api/votes
+Headers:
+   Authorization: Bearer {{TOKEN THAT YOU GET WHEN YOU LOGGED IN THE ADMIN ACCOUNT}}
+   Accept: application/json
+   Content-Type: application/json
+
+Body:
+{
+   "candidate_id": 2,
+   "type": "free"
+}
+```
+
+#### Step 7: Vote History
+```
+GET http://localhost:8000/api/votes/history
+Headers:
+   Authorization: Bearer {{TOKEN THAT YOU GET WHEN YOU LOGGED IN THE ADMIN ACCOUNT}}
+   Accept: application/json
+   Content-Type: application/json
+
+Body:
+{
+   "candidate_id": 2,
+   "type": "free"
+}
+```
+
+#### Step 8: Create a Candidate
+```
+POST http://localhost:8000/api/candidates
+Headers:
+   Authorization: Bearer {{TOKEN THAT YOU GET WHEN YOU LOGGED IN THE ADMIN ACCOUNT}}
+   Accept: application/json
+   Content-Type: application/json
+
+Body:
+{
+   "name": "Anne",
+   "description": "Beautiful and talented candidate",
+   "image_url": "https://example.com/image.jpg"
+}
+```
+
+#### Step 9: Update a Candidate
+```
+PUT http://localhost:8000/api/candidates/
+Headers:
+   Authorization: Bearer {{TOKEN THAT YOU GET WHEN YOU LOGGED IN THE ADMIN ACCOUNT}}
+   Accept: application/json
+   Content-Type: application/json
+
+Body:
+{
+   "name": "Anne",
+   "description": "Beautiful and talented",
+   "updated_at": "2025-08-24T10:49:40.000000Z",
+   "created_at": "2025-08-24T10:49:40.000000Z",
+   "id": 14
+}
+```
+
+#### Step 10: Delete a Candidate
+```
+DELETE http://localhost:8000/api/candidates/14
+Headers:
+   Authorization: Bearer {{TOKEN THAT YOU GET WHEN YOU LOGGED IN THE ADMIN ACCOUNT}}
+   Accept: application/json
+   Content-Type: application/json
+
+Body:
+{
+   "name": "Anne",
+   "description": "Beautiful and talented candidate",
+   "updated_at": "2025-08-24T10:49:40.000000Z",
+   "created_at": "2025-08-24T10:49:40.000000Z",
+   "id": 14
+}
+```
+
+#### Step 11: Get Admin Votes
+```
+GET http://localhost:8000/api/admin/votes
+Headers:
+   Authorization: Bearer {{TOKEN THAT YOU GET WHEN YOU LOGGED IN THE ADMIN ACCOUNT}}
+   Accept: application/json
+   Content-Type: application/json
+```
+
 
 ### API Endpoints
 
