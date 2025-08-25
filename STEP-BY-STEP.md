@@ -427,6 +427,16 @@ Target class [admin] does not exist
 #### CORS Issues
 **Solution**: Ensure Laravel server is running on correct port
 
+#### Image Upload Issues
+```
+Failed to update candidate. Please try again.
+```
+**Problem**: Database field size limitations for base64 images
+**Solutions**:
+1. **Database Updated**: Image field now supports large data
+2. **File Storage**: Images are stored as file paths, not base64 strings
+3. **Restart Required**: Restart Laravel server after database changes
+
 ### Debug Steps
 
 1. **Check Laravel Logs**: `storage/logs/laravel.log`

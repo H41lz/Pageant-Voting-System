@@ -97,4 +97,56 @@ class CandidateController extends Controller
         Log::info('CandidateController: Fetching public candidates');
         return Candidate::all();
     }
+
+    public function updateImage(Request $request, Candidate $candidate)
+    {
+        // Check if user is admin
+        if (Auth::user()->role !== 'admin') {
+            return response()->json(['message' => 'Admins only'], 403);
+        }
+        
+        Log::info('CandidateController: Updating candidate image', [
+            'id' => $candidate->id,
+            'has_image' => $request->hasFile('image')
+        ]);
+        
+        try {
+            if ($request->hasFile('image')) {
+                $file = $request->file('image');
+                
+                // Validate file
+                $request->validate([
+                    'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048'
+                ]);
+                
+                // Generate unique filename
+                $fileName = time() . '_' . $file->getClientOriginalName();
+                
+                // Move file to public/candidates-images directory
+                $file->move(public_path('candidates-images'), $fileName);
+                
+                // Update candidate with new image path
+                $candidate->update([
+                    'name' => $request->input('name', $candidate->name),
+                    'description' => $request->input('description', $candidate->description),
+                    'image' => '/candidates-images/' . $fileName
+                ]);
+                
+                Log::info('CandidateController: Image updated successfully', [
+                    'id' => $candidate->id,
+                    'image_path' => '/candidates-images/' . $fileName
+                ]);
+                
+                return response()->json($candidate);
+            } else {
+                return response()->json(['message' => 'No image file provided'], 400);
+            }
+        } catch (\Exception $e) {
+            Log::error('CandidateController: Failed to update candidate image', [
+                'id' => $candidate->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
 }

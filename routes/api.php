@@ -24,6 +24,7 @@ Route::middleware('auth:sanctum')->get('test-auth', function (Request $request) 
 // Candidates (admin) - simplified middleware
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('candidates', CandidateController::class)->except(['show']);
+    Route::post('candidates/{candidate}/image', [CandidateController::class, 'updateImage']);
     Route::get('admin/votes', [VoteController::class, 'adminVotes']);
 });
 
