@@ -66,7 +66,7 @@ class VoteController extends Controller
             'message' => 'Vote cast successfully! You have used your daily vote.',
             'vote' => $vote,
             'daily_limit_reached' => true,
-            'next_vote_date' => Carbon::now()->addDay()->startOfDay()->toISOString(),
+            'next_vote_date' => Carbon::tomorrow('UTC')->startOfDay()->toISOString(),
             'updated_vote_counts' => [
                 'free_votes' => $freeVotes,
                 'paid_votes' => $paidVotes,
@@ -94,7 +94,7 @@ class VoteController extends Controller
             return response()->json([
                 'message' => 'You have already voted today. You can only vote once per day.',
                 'error' => 'daily_limit_exceeded',
-                'next_vote_date' => Carbon::now()->addDay()->startOfDay()->toISOString()
+                'next_vote_date' => Carbon::tomorrow('UTC')->startOfDay()->toISOString()
             ], 403);
         }
         
@@ -126,7 +126,7 @@ class VoteController extends Controller
             'total_votes' => count($votes),
             'votes' => $votes,
             'daily_limit_reached' => true,
-            'next_vote_date' => Carbon::now()->addDay()->startOfDay()->toISOString()
+            'next_vote_date' => Carbon::tomorrow('UTC')->startOfDay()->toISOString()
         ]);
     }
 
@@ -155,7 +155,7 @@ class VoteController extends Controller
         $nextVoteDate = null;
         
         if (!$canVote) {
-            $nextVoteDate = Carbon::now()->addDay()->startOfDay()->toISOString();
+            $nextVoteDate = Carbon::tomorrow('UTC')->startOfDay()->toISOString();
         }
         
         return response()->json([
