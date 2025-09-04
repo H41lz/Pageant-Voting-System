@@ -164,7 +164,7 @@ Your frontend will be available at: `http://localhost:5173`
 ### 🔐 Admin Panel
 
 #### Access Admin Features
-1. Login with admin account: `admin@pageant.com`
+1. Login with admin account: Email:`admin@pageant.com`, Password:`password`
 2. Navigate to admin panel
 3. Access candidate management features
 
